@@ -1,0 +1,11 @@
+{
+  "name": "Gemini Repricing",
+  "latest": "1.1.4",
+  "notes": "First auto-update-enabled release.",
+  "published": "2025-10-26T19:30:00Z",
+  "installer": {
+    "url": "https://github.com/jamie9622/GeminiRepricing/releases/download/v1.1.4/GeminiRepricing-Setup-1.1.4.exe",
+    "size": 17746989,
+    "sha256": "61831549e05a3b8bbf524fa5d0f097d04074b7083d0a7a331c36d7bbaeb1ad75"
+  }
+}
