@@ -1,15 +1,16 @@
 name: Auto-publish release & update appcast
 
+permissions:
+  contents: write
 on:
   push:
-    tags:
+  tags:
       - "v*"
-  workflow_dispatch:
+    workflow_dispatch:
     inputs:
       tag:
         description: 'Tag to process (e.g., v1.1.5)'
         required: false
-
 jobs:
   release:
     runs-on: windows-latest
