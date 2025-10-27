@@ -2,15 +2,17 @@ name: Auto-publish release & update appcast
 
 permissions:
   contents: write
+
 on:
   push:
-  tags:
+    tags:
       - "v*"
-    workflow_dispatch:
+  workflow_dispatch:
     inputs:
       tag:
         description: 'Tag to process (e.g., v1.1.5)'
         required: false
+
 jobs:
   release:
     runs-on: windows-latest
@@ -66,9 +68,9 @@ jobs:
           $appcastPath = 'updates/appcast.json'
           $json = Get-Content $appcastPath -Raw | ConvertFrom-Json
 
-          $json.latest   = $ver
+          $json.latest    = $ver
           $json.published = (Get-Date).ToUniversalTime().ToString('s') + 'Z'
-          $json.notes    = "Auto release $tag"
+          $json.notes     = "Auto release $tag"
 
           if (-not $json.installer) { $json | Add-Member -NotePropertyName installer -NotePropertyValue @{} }
           $json.installer.url    = $url
