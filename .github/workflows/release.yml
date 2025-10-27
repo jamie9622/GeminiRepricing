@@ -1,9 +1,14 @@
-name: AutAuto-publish release & update appcast
+name: Auto-publish release & update appcast
 
 on:
   push:
     tags:
       - "v*"
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Tag to process (e.g., v1.1.5)'
+        required: false
 
 jobs:
   release:
@@ -13,54 +18,66 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Find installer EXE
-        run: |
-          echo "Looking for installer..."
-          dir *.exe
-          echo "::set-output name=INSTALLER::$(dir /b *.exe)"
-
-      - name: Compute hash and size
-        id: hash
+      - name: Determine tag
+        id: tag
         shell: pwsh
         run: |
-          $exe = (Get-ChildItem *.exe | Select-Object -First 1).FullName
-          $bytes = (Get-Item $exe).Length
-          $hash = (Get-FileHash $exe -Algorithm SHA256).Hash
-          echo "size=$bytes" >> $env:GITHUB_OUTPUT
-          echo "sha256=$hash" >> $env:GITHUB_OUTPUT
-          echo "exe=$exe" >> $env:GITHUB_OUTPUT
+          $tag = "${{ github.ref_type == 'tag' && github.ref_name || '' }}"
+          if (-not $tag) { $tag = "${{ github.event.inputs.tag }}" }
+          if (-not $tag) { Write-Error 'No tag provided. For manual runs, provide an input "tag".'; exit 1 }
+          echo "tag=$tag" >> $env:GITHUB_OUTPUT
 
-      - name: Create GitHub Release
-        uses: softprops/action-gh-release@v2
-        with:
-          files: ${{ steps.hash.outputs.exe }}
-          tag_name: ${{ github.ref_name }}
-          name: ${{ github.ref_name }}
-          body: "Automated release for ${{ github.ref_name }}"
+      - name: Download installer asset
+        id: download
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ github.token }}
+        shell: pwsh
+        run: |
+          $tag = "${{ steps.tag.outputs.tag }}"
+          Write-Host "Downloading release assets for $tag ..."
+          mkdir dist | Out-Null
+          gh release download "$tag" --pattern "*.exe" --dir dist --clobber
+          $exe = Get-ChildItem -Path dist -Filter *.exe -File | Select-Object -First 1
+          if (-not $exe) { Write-Error "No .exe asset found on release $tag. Upload the installer to the release and re-run."; exit 1 }
+          echo "installer=$($exe.FullName)" >> $env:GITHUB_OUTPUT
+          echo "installer_name=$($exe.Name)" >> $env:GITHUB_OUTPUT
+
+      - name: Compute hash and size
+        id: meta
+        shell: pwsh
+        run: |
+          $path = "${{ steps.download.outputs.installer }}"
+          $hash = (Get-FileHash $path -Algorithm SHA256).Hash.ToLower()
+          $size = (Get-Item $path).Length
+          echo "sha256=$hash" >> $env:GITHUB_OUTPUT
+          echo "size=$size" >> $env:GITHUB_OUTPUT
 
       - name: Update appcast.json
         shell: pwsh
         run: |
-          $tag = "${{ github.ref_name }}"
-          $ver = $tag.TrimStart('v')
-          $url = "https://github.com/${{ github.repository }}/releases/download/$tag/$(Split-Path ${{ steps.hash.outputs.exe }} -Leaf)"
-          $json = @{
-            name = "Gemini Repricing"
-            latest = $ver
-            notes = "Auto release $ver"
-            published = (Get-Date).ToString("s") + "Z"
-            installer = @{
-              url = $url
-              size = [int]${{ steps.hash.outputs.size }}
-              sha256 = "${{ steps.hash.outputs.sha256 }}"
-            }
-          } | ConvertTo-Json -Depth 5
-          $path = "updates/appcast.json"
-          $json | Out-File -Encoding utf8 $path
-          git config user.name "github-actions"
-          git config user.email "github-actions@github.com"
-          git add $path
-          git commit -m "Update appcast for $ver"
-          git push
+          $tag   = "${{ steps.tag.outputs.tag }}"
+          $ver   = $tag.TrimStart('v')
+          $hash  = "${{ steps.meta.outputs.sha256 }}"
+          $size  = "${{ steps.meta.outputs.size }}"
+          $asset = "${{ steps.download.outputs.installer_name }}"
+          $url   = "https://github.com/${{ github.repository }}/releases/download/$tag/$asset"
+
+          $appcastPath = 'updates/appcast.json'
+          $json = Get-Content $appcastPath -Raw | ConvertFrom-Json
+
+          $json.latest   = $ver
+          $json.published = (Get-Date).ToUniversalTime().ToString('s') + 'Z'
+          $json.notes    = "Auto release $tag"
+
+          if (-not $json.installer) { $json | Add-Member -NotePropertyName installer -NotePropertyValue @{} }
+          $json.installer.url    = $url
+          $json.installer.size   = [int64]$size
+          $json.installer.sha256 = $hash
+
+          $json | ConvertTo-Json -Depth 5 | Out-File -Encoding utf8 $appcastPath
+
+          git config user.name  'github-actions'
+          git config user.email 'github-actions@github.com'
+          git add $appcastPath
+          git commit -m "Update appcast.json for $tag"
+          git push origin HEAD:main
