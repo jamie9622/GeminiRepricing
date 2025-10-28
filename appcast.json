@@ -4,8 +4,8 @@
   "notes": "First auto-update-enabled release.",
   "published": "2025-10-26T19:30:00Z",
   "installer": {
-    "url": "https://github.com/jamie9622/GeminiRepricing/releases/download/v1.1.5/GeminiRepricing-Setup-1.1.6.exe",
-    "size": 17746989,
-    "sha256": "61831549e05a3b8bbf524fa5d0f097d04074b7083d0a7a331c36d7bbaeb1ad75"
+      "url": "https://github.com/jamie9622/GeminiRepricing/releases/download/v1.1.6/GeminiRepricing-Setup-1.1.6.exe",
+    "size": 17779165,
+    "sha256": "82d8056151d0882cab8b79c1575ac630567cf53aca587ced48a8ffa13ea10efa"
   }
 }
