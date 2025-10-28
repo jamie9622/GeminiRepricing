@@ -10,7 +10,7 @@ on:
   workflow_dispatch:
     inputs:
       tag:
-        description: 'Tag to process (e.g., v1.1.6)'
+        description: 'Tag to process (e.g., v1.1.7)'
         required: false
 
 jobs:
